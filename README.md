@@ -175,3 +175,91 @@ Ahora estamos iniciando gunicorn un poco diferente, ya que estamos bindeando est
 Ahora podemos ir a la dirección  `MY_IP_OR_DOMAIN:8000`. Excelente, nuestra aplicación esta corriendo. Nuestra aplicación esta corrriendo, podemos confirmarlo al acceder a nuestro panel de administración a través de `MY_IP_OR_DOMAIN:8000/admin`. Finalmente, podemos observar los estilos.
 
 **Nginx Funcionando!!!**
+
+## Tercera parte
+
+Es muy complicado manejar unicorn recordando largas lineas de comandos, es por ellos que haremos uso de  [Supervisord](http://supervisord.org/)  el cual nos permite monitorear y controlar diferentes procesos en nuestro SO UNIX.
+
+De esta forma iniciamos nuestra aplicación: 
+
+`gunicorn --daemon --workers 3 --bind unix:/opt/myvirtualenv/myproject/project.sock project.wsgi`
+
+Es un texto largo y complicado de recordar, por ello con supervisord sera mucho mas conveniente y fácil ejecutar estos comandos
+
+    supervisorctl start myproject
+    supervisorctl stop myproject
+    supervisorctl restart myproject
+
+#### Primero, instalemos supervisor 
+Para Instalar:
+
+`sudo apt-get install supervisor`
+
+Ahora reiniciemos: 
+
+`sudo service supervisor restart`
+
+El archivo principal de configuración de supervisord esta en  `/etc/supervisor/supervisord.conf`. Si revisamos el mismo podemos observar que contiene las siguiente lineas
+
+    [include]
+    files = /etc/supervisor/conf.d/*.conf
+
+Esto significa que los archivos de configuración de cada proyecto pueden ser almacenados en It means that config files of specific projects can be stored here  `/etc/supervisor/conf.d/`  y ellos serán incluidos en el archivo principal
+
+Entonces, creamos el archivo `project.conf`  en la carpeta `/etc/supervisor/conf.d/` :
+
+`sudo nano /etc/supervisor/conf.d/project.conf`
+
+#### Segundo, configuremos nuestro proyecto
+
+    [program:myproject]
+    command=/opt/myvirtualenv/bin/gunicorn --workers 3 --bind unix:/opt/myvirtualenv/myproject/project.sock project.wsgi
+    directory=/opt/myvirtualenv/myproject
+    autostart=true
+    autorestart=true
+    stderr_logfile=/var/log/myproject.err.log
+    stdout_logfile=/var/log/myproject.out.log
+
+Analicemos el significado de las instrucciones
+
+ 1. `[program:myproject]` Aquí, definimos el nombre del programa que usaremos en este tipo de comandos `sudo supervisorctl start myproject`
+ 2. `command=/opt/myvirtualenv/bin/gunicorn --workers 3 --bind unix:/opt/myvirtualenv/myproject/project.sock project.wsgi`  permite definir el comando a ser usado cuando iniciamos o reiniciamos nuestro proyecto
+ 3. `directory=/opt/myvirtualenv/myproject` indica el path desde donde el comando sera ejecutado
+ 4. `autostart=true` y `autorestart=true` estas lineas definen el comportamiento del script en diferentes condiciones. `Autostart`  le dice al script que debe iniciar cuando el sistema inicie y  `autorestart`  dice al script que debe reiniciar si existe alguna razón.
+ 5. `stderr_logfile=/var/log/myproject.err.log` y `stdout_logfile=/var/log/myproject.out.log` indican donde los diferentes logs serán almacenados. Log por errores serán almacenamos en `myproject.err.log` y otros en `myproject.out.log`
+
+Ahora grabemos el archivos y ejecutemos el siguiente comando para que los cambios tomen efecto:
+
+    sudo supervisorctl reread
+    sudo supervisorctl update
+
+Para verificar que todo esta funcionando, podemos tipear: 
+`ps ax | grep gunicorn`
+
+Deberíamos ver diversos procesos gunicorn ejecutandose o podemos ir a `MY_IP_OR_DOMAIN:8000` y veremos la aplicación django funcionando. 
+
+También podemos usar  `supervisor`  para verificar si la aplicación esta corriendo
+
+`sudo supervisorctl status myproject`
+
+#### Tercero, implementemos la interfaz web de supervisord
+Ideal en caso de que no queramos utilizar la linea de comandos para controlar los procesos, para ello abrimos  `/etc/supervisor/supervisor.conf`  y colocamos las siguientes lineas al inicio del archivo
+
+    [inet_http_server]
+    port=MY_IP_OR_DOMAIN:9001
+
+Esto indica que la interfaz web del supervisor va a correr en  `MY_IP_OR_DOMAIN:9001`.
+
+Grabemos el archivo y recarguemos al supervisor con el siguiente comando
+
+`sudo supervisorctl reload`
+
+Vamos al navegador y coloquemos  `MY_IP_OR_DOMAIN:9001`
+
+**Funciona: Django, Nginx, Gunicorn y los administramos con supervisord**
+
+Fuente: 
+
+ 1. [Parte 1](http://rahmonov.me/posts/run-a-django-app-with-gunicorn-in-ubuntu-16-04/)
+ 2. [Parte 2](http://rahmonov.me/posts/run-a-django-app-with-nginx-and-gunicorn/)
+ 3. [Parte 3](http://rahmonov.me/posts/run-a-django-app-with-nginx-gunicorn-and-supervisor/)
