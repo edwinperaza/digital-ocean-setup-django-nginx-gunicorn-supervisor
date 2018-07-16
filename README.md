@@ -150,4 +150,28 @@ Si todo esta bien, deberíamos observar lo siguiente:
     nginx: the configuration file /etc/nginx/nginx.conf syntax is ok
     nginx: configuration file /etc/nginx/nginx.conf test is successful
 
+#### Cuarto, actualicemos la ubicación de nuestros archivos estáticos
+
+Debemos mover nuestros archivos a la siguiente ubicación  `~/myproject/static/`  ya que configuramos para que Nginx fuera allí a buscarlos. para ellos necesitamos abrir el siguiente archivo  `myproject/settings.py`  y agrega lo siguiente:
+
+`STATIC_ROOT = os.path.join(BASE_DIR, 'static/')`
+
+Graba y cierra, luego hagamos collect hacia esa carpeta:
+
+`./manage.py collectstatic` o `python manage.py collectstatic`
+
+En caso de que solicite confirmación, procede a confirmar y de esta forma estarán disponibles para que Nginx los encuentre.
+
+Ahora, ejecutemos nuestra aplicación:
+
+`gunicorn --daemon --workers 3 --bind unix:/opt/myvirtualenv/myproject/project.sock project.wsgi`
+
+Ahora estamos iniciando gunicorn un poco diferente, ya que estamos bindeando este a un archivo socket el cual es necesario para comunicarnos con Nginx. Este archivo sera ceardo y habilidato para que Nginx y Gunicorn se comuniquen el uno con el otro. Nginx se encarga de los puerto, recodemos que habiamos configurado para que escuchara a través del `MY_IP_OR_DOMAIN:8000`
+
+####	Quinto, reiniciemos Nginx
+
+`sudo service nginx restart`
+
+Ahora podemos ir a la dirección  `MY_IP_OR_DOMAIN:8000`. Excelente, nuestra aplicación esta corriendo. Nuestra aplicación esta corrriendo, podemos confirmarlo al acceder a nuestro panel de administración a través de `MY_IP_OR_DOMAIN:8000/admin`. Finalmente, podemos observar los estilos.
+
 **Nginx Funcionando!!!**
